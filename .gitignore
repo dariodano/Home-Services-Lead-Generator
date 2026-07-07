@@ -8,3 +8,12 @@ __pycache__/
 
 # Generated lead CSVs
 *.csv
+
+# Local lead database
+leads.db
+
+# Secrets — never commit your real API key
+.env
+
+# Claude Code local settings
+.claude/settings.local.json
