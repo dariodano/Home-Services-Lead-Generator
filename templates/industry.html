@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}{{ industry.name }} — Lead CRM{% endblock %}
+{% block content %}
+<p style="margin:0 0 10px"><a href="{{ url_for('index') }}">&larr; All industries</a></p>
+<h1>{{ industry.name }}</h1>
+<p class="sub">
+  <span id="remaining">{{ remaining }}</span> to call &middot; {{ leads|length }} total
+  &middot;
+  {% if hide_done %}
+    <a href="{{ url_for('industry', industry_id=industry.id, show='all') }}">show done too</a>
+  {% else %}
+    <a href="{{ url_for('industry', industry_id=industry.id) }}">hide done</a>
+  {% endif %}
+</p>
+
+{% if leads %}
+<table>
+  <thead>
+    <tr><th class="checkcell" title="Done">✓</th><th>Business</th><th>Phone</th><th>Maps</th><th></th></tr>
+  </thead>
+  <tbody>
+  {% for lead in leads %}
+    <tr data-id="{{ lead.id }}" class="{{ 'done' if lead.clicked else '' }}"
+        {% if hide_done and lead.clicked %}hidden{% endif %}>
+      <td class="checkcell">
+        <input type="checkbox" {{ 'checked' if lead.clicked else '' }} title="Mark done">
+      </td>
+      <td class="lead-name">
+        <strong>{{ lead.name }}</strong>
+        {% if lead.address %}<div class="muted">{{ lead.address }}</div>{% endif %}
+      </td>
+      <td style="white-space:nowrap">
+        {% if lead.phone %}<a href="tel:{{ lead.phone }}">{{ lead.phone }}</a>
+        {% else %}<span class="muted">—</span>{% endif %}
+      </td>
+      <td>
+        {% if lead.maps_url %}
+          <a class="maps" href="{{ lead.maps_url }}" target="_blank" rel="noopener">Map&nbsp;↗</a>
+        {% else %}<span class="muted">—</span>{% endif %}
+      </td>
+      <td>
+        {% if lead.website_status == 'No website' %}
+          <span class="badge no-site">no site</span>
+        {% else %}
+          <span class="badge social">social only</span>
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+  <p class="muted">No leads stored for this industry yet.</p>
+{% endif %}
+
+<script>
+  function setClicked(id, clicked) {
+    fetch(`/lead/${id}/clicked`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({clicked}),
+    });
+  }
+  function bumpRemaining(delta) {
+    const el = document.getElementById('remaining');
+    el.textContent = Math.max(0, parseInt(el.textContent, 10) + delta);
+  }
+  document.querySelectorAll('tr[data-id]').forEach(row => {
+    const id = row.dataset.id;
+    const box = row.querySelector('input[type=checkbox]');
+
+    box.addEventListener('change', () => {
+      setClicked(id, box.checked);
+      row.classList.toggle('done', box.checked);
+      bumpRemaining(box.checked ? -1 : 1);
+    });
+
+    // Opening the Maps link marks the lead done automatically.
+    const link = row.querySelector('a.maps');
+    if (link) link.addEventListener('click', () => {
+      if (!box.checked) {
+        box.checked = true;
+        setClicked(id, true);
+        row.classList.add('done');
+        bumpRemaining(-1);
+      }
+    });
+  });
+</script>
+{% endblock %}

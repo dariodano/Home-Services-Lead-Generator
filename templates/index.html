@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Industries</h1>
+<p class="sub">Each search term is its own list. Re-running a search only adds businesses you don't already have.</p>
+
+{% if not has_api_key %}
+  <div class="banner err">GOOGLE_MAPS_API_KEY is not set — searches will fail.
+    Set it in your shell before starting the app (see README.md).</div>
+{% endif %}
+
+{% if state.running %}
+  <div class="banner info" id="progress">Searching &ldquo;{{ state.query }}&rdquo;&hellip;</div>
+{% elif state.error %}
+  <div class="banner err">Search failed: {{ state.error }}</div>
+{% elif state.summary %}
+  <div class="banner ok">Done: added {{ state.summary.new_leads }} new lead{{ '' if state.summary.new_leads == 1 else 's' }}
+    to &ldquo;{{ state.summary.query }}&rdquo;
+    ({{ state.summary.unique }} businesses checked, {{ state.summary.api_calls }} API calls).</div>
+{% endif %}
+
+<div class="card">
+  <form method="post" action="{{ url_for('start_search') }}"
+        style="display:flex; flex-wrap:wrap; gap:12px; align-items:center">
+    <input type="text" name="query" placeholder='Industry, e.g. "HVAC contractor"'
+           required style="flex:1; min-width:220px" {% if state.running %}disabled{% endif %}>
+    <label>Radius <input type="number" name="radius" value="{{ default_radius }}"
+           min="1" max="100" step="1" style="width:70px"
+           {% if state.running %}disabled{% endif %}> mi</label>
+    <label title="Include businesses whose only web presence is Facebook/Instagram/etc.">
+      <input type="checkbox" name="include_social" checked
+             {% if state.running %}disabled{% endif %}> social-only too</label>
+    <button class="primary" type="submit" {% if state.running %}disabled{% endif %}>
+      {{ 'Searching…' if state.running else 'Find leads' }}</button>
+    <details style="width:100%">
+      <summary class="muted" style="cursor:pointer">Advanced: center point</summary>
+      <label style="display:inline-block; margin-top:8px">Center (lat,lng)
+        <input type="text" name="center" value="{{ default_center }}" style="width:200px"
+               {% if state.running %}disabled{% endif %}></label>
+      <span class="muted">default is Philadelphia City Hall</span>
+    </details>
+  </form>
+</div>
+
+{% if industries %}
+<table>
+  <thead>
+    <tr><th>Industry</th><th>Leads</th><th>To&nbsp;call</th><th>Added</th><th></th></tr>
+  </thead>
+  <tbody>
+  {% for ind in industries %}
+    <tr>
+      <td><a href="{{ url_for('industry', industry_id=ind.id) }}"><strong>{{ ind.name }}</strong></a></td>
+      <td>{{ ind.total }}</td>
+      <td>{% if ind.remaining %}<strong>{{ ind.remaining }}</strong>{% else %}<span class="muted">0 — all done 🎉</span>{% endif %}</td>
+      <td class="muted">{{ ind.created_at[:10] }}</td>
+      <td style="text-align:right">
+        <form method="post" action="{{ url_for('industry_delete', industry_id=ind.id) }}"
+              onsubmit="return confirm('Delete “{{ ind.name }}” and all {{ ind.total }} of its leads?')">
+          <button class="danger" type="submit" title="Delete this industry">✕</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+  <p class="muted">No industries yet — run your first search above.</p>
+{% endif %}
+
+{% if state.running %}
+<script>
+  const banner = document.getElementById('progress');
+  const timer = setInterval(async () => {
+    try {
+      const s = await (await fetch('/api/search-status')).json();
+      if (!s.running) { clearInterval(timer); location.reload(); return; }
+      if (s.total_cells) {
+        banner.textContent = `Searching “${s.query}” — area ${s.cell}/${s.total_cells}` +
+          `, ${s.new_leads} new lead${s.new_leads === 1 ? '' : 's'} so far (${s.api_calls} API calls)`;
+      }
+    } catch (e) { /* server restarting; keep polling */ }
+  }, 2000);
+</script>
+{% endif %}
+{% endblock %}

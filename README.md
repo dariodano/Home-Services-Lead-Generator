@@ -37,14 +37,19 @@ takes about 10 minutes and only has to be done once.
    budget**, set it to **$10**, and keep the default email alerts at 50/90/100%.
    This is your safety net against surprise charges.
 
-6. **Export the key.** The tool reads the key from the `GOOGLE_MAPS_API_KEY`
-   environment variable — it is never hardcoded:
+6. **Add the key to your `.env` file.** The tool reads the key from a `.env`
+   file in this folder — it is never hardcoded. Open the `.env` file and paste
+   your key between the quotes:
 
-   ```bash
-   export GOOGLE_MAPS_API_KEY="AIza...your-key-here"
+   ```
+   GOOGLE_MAPS_API_KEY="AIza...your-key-here"
    ```
 
-   To make it permanent, add that line to your `~/.bashrc` or `~/.zshrc`.
+   Save the file and you're done — the app and CLI both pick it up
+   automatically. If the `.env` file is missing, copy `.env.example` to `.env`
+   first. (`.env` is git-ignored so your key never gets committed. A real
+   `GOOGLE_MAPS_API_KEY` shell environment variable, if set, still takes
+   precedence.)
 
 ## Install
 
