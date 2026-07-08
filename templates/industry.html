@@ -30,7 +30,8 @@
         {% if lead.address %}<div class="muted">{{ lead.address }}</div>{% endif %}
       </td>
       <td style="white-space:nowrap">
-        {% if lead.phone %}<a href="tel:{{ lead.phone }}">{{ lead.phone }}</a>
+        {% if lead.phone %}<button type="button" class="phone" data-phone="{{ lead.phone }}"
+            title="Click to copy">{{ lead.phone }}</button>
         {% else %}<span class="muted">—</span>{% endif %}
       </td>
       <td>
@@ -54,6 +55,15 @@
 {% endif %}
 
 <script>
+  // Remember the last business the user clicked on (any element in the row),
+  // and give it a red outline. Persisted per-industry so it survives reloads.
+  const LAST_KEY = 'lastClicked:{{ industry.id }}';
+  function markLastClicked(row) {
+    document.querySelectorAll('tr.last-clicked').forEach(r => r.classList.remove('last-clicked'));
+    row.classList.add('last-clicked');
+    localStorage.setItem(LAST_KEY, row.dataset.id);
+  }
+
   function setClicked(id, clicked) {
     fetch(`/lead/${id}/clicked`, {
       method: 'POST',
@@ -65,9 +75,17 @@
     const el = document.getElementById('remaining');
     el.textContent = Math.max(0, parseInt(el.textContent, 10) + delta);
   }
+  const savedLast = localStorage.getItem(LAST_KEY);
+
   document.querySelectorAll('tr[data-id]').forEach(row => {
     const id = row.dataset.id;
     const box = row.querySelector('input[type=checkbox]');
+
+    if (id === savedLast) row.classList.add('last-clicked');
+
+    // Any click within the row marks it the last-clicked business. Uses
+    // mousedown so it also fires on links before they open a new tab.
+    row.addEventListener('mousedown', () => markLastClicked(row));
 
     box.addEventListener('change', () => {
       setClicked(id, box.checked);
@@ -75,16 +93,27 @@
       bumpRemaining(box.checked ? -1 : 1);
     });
 
-    // Opening the Maps link marks the lead done automatically.
-    const link = row.querySelector('a.maps');
-    if (link) link.addEventListener('click', () => {
-      if (!box.checked) {
-        box.checked = true;
-        setClicked(id, true);
-        row.classList.add('done');
-        bumpRemaining(-1);
+    // Clicking a phone number copies it to the clipboard.
+    const phone = row.querySelector('button.phone');
+    if (phone) phone.addEventListener('click', async () => {
+      const number = phone.dataset.phone;
+      try {
+        await navigator.clipboard.writeText(number);
+      } catch (e) {
+        // Fallback for older browsers / non-secure contexts.
+        const ta = document.createElement('textarea');
+        ta.value = number; document.body.appendChild(ta);
+        ta.select(); document.execCommand('copy'); ta.remove();
       }
+      const original = phone.textContent;
+      phone.textContent = 'Copied!';
+      phone.classList.add('copied');
+      setTimeout(() => {
+        phone.textContent = original;
+        phone.classList.remove('copied');
+      }, 1000);
     });
+
   });
 </script>
 {% endblock %}
